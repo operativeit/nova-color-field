@@ -2,8 +2,9 @@
   <DefaultField :field="currentField" :errors="errors" :show-help-text="showHelpText">
     <template #field>
       <div
-        class="o1-inline-flex o1-mb-2 color-picker o1-overflow-hidden o1-rounded-lg form-input-bordered"
+        class="o1-inline-flex o1-mb-2 o1-overflow-hidden color-picker form-input form-control form-control-bordered o1-px-0"
         ref="inputArea"
+        v-click-outside="handleClickOutside"
       >
         <div class="o1-bg-checkered" style="z-index: 2">
           <div
@@ -14,15 +15,18 @@
         </div>
 
         <input
-          :id="field.name"
+          :id="currentField.uniqueKey"
+          :dusk="field.attribute"
           type="text"
           class="o1-w-25 o1-border-0 w-full form-control form-input form-input-bordered o1-rounded-l-none"
-          :class="errorClasses"
+	  :class="errorClasses"
           :placeholder="placeholder"
           :value="displayValue"
           v-on:keydown.enter.prevent="handleEnter"
           @blur="handleRawInput"
+          @focus="handleFocus"
           @click="showPicker"
+          ref="inputField"
         />
       </div>
 
@@ -53,10 +57,15 @@ import { DependentFormField, HandlesValidationErrors } from 'laravel-nova';
 import { Chrome, Compact, Grayscale, Material, Photoshop, Sketch, Slider, Swatches, Twitter } from '@ckpack/vue-color';
 import tinycolor from 'tinycolor2';
 
+import directiveClickOutside from '../utils/directiveClickOutside'
+
 export default {
   name: 'NovaColorField',
   mixins: [HandlesValidationErrors, DependentFormField],
 
+  directives: {
+      clickOutside: directiveClickOutside
+  },
   components: {
     'chrome-picker': Chrome,
     'compact-picker': Compact,
@@ -88,7 +97,7 @@ export default {
     setInitialValue() {
       const val = this.field.value || null;
       this.value = val ? tinycolor(val) : '';
-      this.vcValue = this.value ? this.value.toRgbString() : '';
+      this.vcValue = this.value? this.value.toRgbString() : '';
     },
 
     setVcValue(newValue) {
@@ -104,13 +113,24 @@ export default {
     },
 
     valueUpdated() {
+      this.$refs.inputField.dispatchEvent(new Event('input', { bubbles: true }));
+
       if (this.field) {
         this.emitFieldValueChange(this.field.attribute, this.saveValue);
       }
     },
 
+    handleClickOutside() {
+      const inputArea = this.$refs.inputArea;
+      inputArea.classList.remove('form-control-focused');
+    },
+
     handleRawInput(event) {
+
+      const inputArea = this.$refs.inputArea;
       const value = event.target.value;
+
+      inputArea.classList.remove('form-control-focused');
 
       if (!value) {
         this.value = '';
@@ -123,6 +143,11 @@ export default {
         this.value = color;
         this.valueUpdated();
       }
+    },
+
+    handleFocus(event) {
+      const inputArea = this.$refs.inputArea;
+      inputArea.classList.add('form-control-focused');
     },
 
     handleEnter(event) {
@@ -150,12 +175,16 @@ export default {
       }
     },
     togglePicker() {
+      const inputArea = this.$refs.inputArea;
+      inputArea.classList.add('form-control-focused');
+
       if (this.shouldShowPicker) {
         this.hidePicker();
       } else {
         this.showPicker();
       }
     },
+
     hidePicker() {
       document.removeEventListener('click', this.documentClick);
       if (this.shouldShowPicker === true) this.valueUpdated();
@@ -189,6 +218,7 @@ export default {
 
     saveValue() {
       if (!this.value) return '';
+
       const saveAs = this.currentField.saveAs || 'hex8';
       const value = typeof this.value === 'object' && this.value.hex8 ? this.value.hex8 : this.value;
       const color = tinycolor(value);
@@ -198,6 +228,7 @@ export default {
     rgbaValue() {
       return this.value ? this.value.toRgbString() : '';
     },
+    
   },
 };
 </script>
